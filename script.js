@@ -34,6 +34,7 @@
   const LS_PASSWORD = "church_secretary_password"; // legado (texto plano) para migración automática
   const LS_PASSWORD_HASH = "church_secretary_password_hash";
   const SS_AUTH = "church_secretary_authenticated";
+  const LS_CHURCH_NAME = "church_name";
 
   const LS_EVENTS = "church_events";
   const LS_BIRTHDAYS = "church_birthdays";
@@ -65,16 +66,24 @@
   // DOM: autenticación
   // ---------------------------------------------------------------------------
   const authScreen = document.getElementById("auth-screen");
+  const nameForm = document.getElementById("name-form");
   const setupForm = document.getElementById("setup-form");
   const loginForm = document.getElementById("login-form");
+  const churchNameInput = document.getElementById("church-name-input");
+  const nameError = document.getElementById("name-error");
   const setupPass = document.getElementById("setup-pass");
   const setupPass2 = document.getElementById("setup-pass2");
   const setupError = document.getElementById("setup-error");
   const loginPass = document.getElementById("login-pass");
   const loginError = document.getElementById("login-error");
 
+  // DOM: nombre visible
+  const uiChurchNameAuth = document.getElementById("ui-church-name-auth");
+  const uiChurchNameHeader = document.getElementById("ui-church-name-header");
+
   // DOM: shell / navegación
   const appEl = document.getElementById("app");
+  const btnSettings = document.getElementById("btn-settings");
   const btnLogout = document.getElementById("btn-logout");
   const sidebar = document.getElementById("sidebar");
   const btnNavToggle = document.getElementById("btn-nav-toggle");
@@ -217,6 +226,14 @@
   const noteError = document.getElementById("note-error");
   const noteCancel = document.getElementById("note-cancel");
 
+  // DOM: modal ajustes
+  const settingsOverlay = document.getElementById("settings-modal-overlay");
+  const settingsClose = document.getElementById("settings-modal-close");
+  const settingsForm = document.getElementById("settings-form");
+  const settingsChurchName = document.getElementById("settings-church-name");
+  const settingsError = document.getElementById("settings-error");
+  const settingsCancel = document.getElementById("settings-cancel");
+
   // ---------------------------------------------------------------------------
   // Estado de UI
   // ---------------------------------------------------------------------------
@@ -228,6 +245,29 @@
   // ---------------------------------------------------------------------------
   // Utilidades generales
   // ---------------------------------------------------------------------------
+  function normalizeChurchName(name) {
+    return String(name || "").trim().replace(/\s+/g, " ").slice(0, 60);
+  }
+
+  function getChurchName() {
+    return normalizeChurchName(localStorage.getItem(LS_CHURCH_NAME) || "");
+  }
+
+  function setChurchName(name) {
+    const normalized = normalizeChurchName(name);
+    if (!normalized) return false;
+    localStorage.setItem(LS_CHURCH_NAME, normalized);
+    applyChurchNameToUi();
+    return true;
+  }
+
+  function applyChurchNameToUi() {
+    const name = getChurchName() || "Sistema Iglesia";
+    if (uiChurchNameAuth) uiChurchNameAuth.textContent = name;
+    if (uiChurchNameHeader) uiChurchNameHeader.textContent = name;
+    document.title = name + " — Secretaría";
+  }
+
   function generateId(prefix) {
     if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
     return (prefix || "id") + "_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
@@ -365,18 +405,26 @@
 
   function showAuthForms() {
     const hasPassword = !!getStoredPasswordHash() || !!localStorage.getItem(LS_PASSWORD);
-    setupForm.classList.toggle("hidden", hasPassword);
-    loginForm.classList.toggle("hidden", !hasPassword);
+    const hasName = !!getChurchName();
+
+    // Si falta el nombre, forzamos configuración inicial de nombre (una vez por instalación).
+    nameForm.classList.toggle("hidden", hasName);
+    setupForm.classList.toggle("hidden", !hasName || hasPassword);
+    loginForm.classList.toggle("hidden", !hasName || !hasPassword);
 
     authScreen.classList.remove("hidden");
     authScreen.setAttribute("aria-hidden", "false");
     appEl.classList.add("hidden");
     appEl.setAttribute("aria-hidden", "true");
 
+    nameError.textContent = "";
     setupError.textContent = "";
     loginError.textContent = "";
 
-    if (!hasPassword) {
+    if (!hasName) {
+      churchNameInput.value = "";
+      churchNameInput.focus();
+    } else if (!hasPassword) {
       setupPass.value = "";
       setupPass2.value = "";
       setupPass.focus();
@@ -396,11 +444,21 @@
   }
 
   async function initAuth() {
+    applyChurchNameToUi();
     // Asegura que si la app venía de una versión antigua, se migre la contraseña.
     await migratePlainPasswordIfNeeded();
     if (isSessionAuthenticated()) showApp();
     else showAuthForms();
   }
+
+  nameForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    nameError.textContent = "";
+    const ok = setChurchName(churchNameInput.value);
+    if (!ok) return void (nameError.textContent = "Escriba un nombre válido.");
+    // Tras guardar nombre, volvemos a mostrar el flujo normal (setup de contraseña o login).
+    showAuthForms();
+  });
 
   setupForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -440,6 +498,27 @@
   btnLogout.addEventListener("click", () => {
     clearSession();
     showAuthForms();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Ajustes (cambiar nombre visible)
+  // ---------------------------------------------------------------------------
+  function openSettings() {
+    settingsError.textContent = "";
+    settingsChurchName.value = getChurchName() || "";
+    openOverlay(settingsOverlay, settingsChurchName);
+  }
+
+  btnSettings.addEventListener("click", openSettings);
+  settingsClose.addEventListener("click", () => closeOverlay(settingsOverlay));
+  settingsCancel.addEventListener("click", () => closeOverlay(settingsOverlay));
+
+  settingsForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    settingsError.textContent = "";
+    const ok = setChurchName(settingsChurchName.value);
+    if (!ok) return void (settingsError.textContent = "Escriba un nombre válido.");
+    closeOverlay(settingsOverlay);
   });
 
   // ---------------------------------------------------------------------------
@@ -1470,10 +1549,10 @@
     });
   }
 
-  [eventModalOverlay, birthdayOverlay, weeklyOverlay, memberOverlay, specialOverlay, noteOverlay].forEach(bindOverlayClose);
+  [eventModalOverlay, birthdayOverlay, weeklyOverlay, memberOverlay, specialOverlay, noteOverlay, settingsOverlay].forEach(bindOverlayClose);
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    [eventModalOverlay, birthdayOverlay, weeklyOverlay, memberOverlay, specialOverlay, noteOverlay].forEach((ov) => {
+    [eventModalOverlay, birthdayOverlay, weeklyOverlay, memberOverlay, specialOverlay, noteOverlay, settingsOverlay].forEach((ov) => {
       if (!ov.classList.contains("hidden")) closeOverlay(ov);
     });
   });
