@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4CAF50"/>
+      <stop offset="1" stop-color="#2E7D32"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="40" fill="url(#g)"/>
+  <circle cx="96" cy="82" r="34" fill="#ffffff" opacity="0.18"/>
+  <path d="M96 42c-18 18-44 36-44 63 0 26 20 45 44 45s44-19 44-45c0-27-26-45-44-63z" fill="#ffffff" opacity="0.25"/>
+  <path d="M96 54c-13 14-32 28-32 49 0 18 14 32 32 32s32-14 32-32c0-21-19-35-32-49z" fill="#ffffff"/>
+  <rect x="90" y="78" width="12" height="44" rx="6" fill="#4CAF50"/>
+  <rect x="76" y="92" width="40" height="12" rx="6" fill="#4CAF50"/>
+  <text x="96" y="164" text-anchor="middle" font-family="system-ui,Segoe UI,Arial" font-size="18" font-weight="700" fill="#ffffff">Iglesia</text>
+</svg>
+

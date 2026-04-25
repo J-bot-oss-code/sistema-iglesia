@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4CAF50"/>
+      <stop offset="1" stop-color="#2E7D32"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#g)"/>
+  <circle cx="256" cy="220" r="92" fill="#ffffff" opacity="0.18"/>
+  <path d="M256 108c-48 48-124 96-124 168 0 72 56 126 124 126s124-54 124-126c0-72-76-120-124-168z" fill="#ffffff" opacity="0.25"/>
+  <path d="M256 142c-36 38-90 78-90 136 0 52 40 92 90 92s90-40 90-92c0-58-54-98-90-136z" fill="#ffffff"/>
+  <rect x="240" y="214" width="32" height="132" rx="16" fill="#4CAF50"/>
+  <rect x="178" y="260" width="156" height="32" rx="16" fill="#4CAF50"/>
+  <text x="256" y="454" text-anchor="middle" font-family="system-ui,Segoe UI,Arial" font-size="44" font-weight="800" fill="#ffffff">Sistema Iglesia</text>
+</svg>
+
