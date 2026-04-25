@@ -33,6 +33,7 @@
   // Seguridad: guardamos hash SHA-256 en vez de contraseña en texto plano
   const LS_PASSWORD = "church_secretary_password"; // legado (texto plano) para migración automática
   const LS_PASSWORD_HASH = "church_secretary_password_hash";
+  const LS_RECOVERY = "church_secretary_recovery_v1";
   const SS_AUTH = "church_secretary_authenticated";
   const LS_CHURCH_NAME = "church_name";
 
@@ -76,6 +77,26 @@
   const setupError = document.getElementById("setup-error");
   const loginPass = document.getElementById("login-pass");
   const loginError = document.getElementById("login-error");
+  const btnForgotPass = document.getElementById("btn-forgot-pass");
+
+  // DOM: recuperación / reset
+  const setupRecoveryType = document.getElementById("recovery-type");
+  const setupRecoveryQuestionFields = document.getElementById("recovery-question-fields");
+  const setupRecoveryPhraseFields = document.getElementById("recovery-phrase-fields");
+  const setupRecoveryQuestion = document.getElementById("recovery-question");
+  const setupRecoveryAnswer = document.getElementById("recovery-answer");
+  const setupRecoveryPhrase = document.getElementById("recovery-phrase");
+
+  const recoveryForm = document.getElementById("recovery-form");
+  const recoveryPromptQuestion = document.getElementById("recovery-prompt-question");
+  const recoveryPromptPhrase = document.getElementById("recovery-prompt-phrase");
+  const recoveryQuestionLabel = document.getElementById("recovery-question-label");
+  const recoveryAnswerCheck = document.getElementById("recovery-answer-check");
+  const recoveryPhraseCheck = document.getElementById("recovery-phrase-check");
+  const resetPass = document.getElementById("reset-pass");
+  const resetPass2 = document.getElementById("reset-pass2");
+  const recoveryError = document.getElementById("recovery-error");
+  const btnRecoveryCancel = document.getElementById("btn-recovery-cancel");
 
   // DOM: nombre visible
   const uiChurchNameAuth = document.getElementById("ui-church-name-auth");
@@ -234,6 +255,17 @@
   const settingsError = document.getElementById("settings-error");
   const settingsCancel = document.getElementById("settings-cancel");
 
+  // DOM: inyectaremos un botón de "Restablecer contraseña" en Ajustes
+  let btnResetPassword = null;
+
+  function applySetupRecoveryUi() {
+    const type = String(setupRecoveryType.value || "");
+    setupRecoveryQuestionFields.classList.toggle("hidden", type !== "question");
+    setupRecoveryPhraseFields.classList.toggle("hidden", type !== "phrase");
+  }
+
+  setupRecoveryType.addEventListener("change", applySetupRecoveryUi);
+
   // ---------------------------------------------------------------------------
   // Estado de UI
   // ---------------------------------------------------------------------------
@@ -365,6 +397,30 @@
       .join("");
   }
 
+  function normalizeRecoverySecret(raw) {
+    return String(raw || "").trim().replace(/\s+/g, " ");
+  }
+
+  function getRecoveryConfig() {
+    const parsed = safeJsonParse(localStorage.getItem(LS_RECOVERY), null);
+    if (!parsed || typeof parsed !== "object") return null;
+    if (parsed.v !== 1) return null;
+    if (parsed.type !== "question" && parsed.type !== "phrase") return null;
+    if (typeof parsed.answerHash !== "string" || parsed.answerHash.length < 10) return null;
+    if (parsed.type === "question" && typeof parsed.question !== "string") return null;
+    return parsed;
+  }
+
+  function setRecoveryConfig(cfg) {
+    localStorage.setItem(LS_RECOVERY, JSON.stringify(cfg));
+  }
+
+  function clearStoredPasswordOnly() {
+    localStorage.removeItem(LS_PASSWORD_HASH);
+    localStorage.removeItem(LS_PASSWORD);
+    clearSession();
+  }
+
   function getStoredPasswordHash() {
     return localStorage.getItem(LS_PASSWORD_HASH);
   }
@@ -411,6 +467,7 @@
     nameForm.classList.toggle("hidden", hasName);
     setupForm.classList.toggle("hidden", !hasName || hasPassword);
     loginForm.classList.toggle("hidden", !hasName || !hasPassword);
+    recoveryForm.classList.add("hidden");
 
     authScreen.classList.remove("hidden");
     authScreen.setAttribute("aria-hidden", "false");
@@ -427,6 +484,12 @@
     } else if (!hasPassword) {
       setupPass.value = "";
       setupPass2.value = "";
+      setupRecoveryType.value = "";
+      setupRecoveryQuestion.value = "";
+      setupRecoveryAnswer.value = "";
+      setupRecoveryPhrase.value = "";
+      setupRecoveryQuestionFields.classList.add("hidden");
+      setupRecoveryPhraseFields.classList.add("hidden");
       setupPass.focus();
     } else {
       loginPass.value = "";
@@ -467,10 +530,39 @@
     const p2 = setupPass2.value;
     if (p1.length < 4) return void (setupError.textContent = "La contraseña debe tener al menos 4 caracteres.");
     if (p1 !== p2) return void (setupError.textContent = "Las contraseñas no coinciden.");
+
+    const recoveryType = String(setupRecoveryType.value || "");
+    if (recoveryType !== "question" && recoveryType !== "phrase") {
+      return void (setupError.textContent = "Seleccione una opción de recuperación (pregunta o frase).");
+    }
+
+    let recoveryCfg = null;
+    if (recoveryType === "question") {
+      const q = normalizeRecoverySecret(setupRecoveryQuestion.value);
+      const a = normalizeRecoverySecret(setupRecoveryAnswer.value);
+      if (q.length < 6) return void (setupError.textContent = "Escriba una pregunta de seguridad (mín. 6 caracteres).");
+      if (a.length < 3) return void (setupError.textContent = "Escriba una respuesta (mín. 3 caracteres).");
+      try {
+        const answerHash = await sha256Hex(a.toLowerCase());
+        recoveryCfg = { v: 1, type: "question", question: q, answerHash };
+      } catch {
+        return void (setupError.textContent = "No se pudo guardar la recuperación en este navegador.");
+      }
+    } else {
+      const phrase = normalizeRecoverySecret(setupRecoveryPhrase.value);
+      if (phrase.length < 6) return void (setupError.textContent = "La frase debe tener al menos 6 caracteres.");
+      try {
+        const answerHash = await sha256Hex(phrase.toLowerCase());
+        recoveryCfg = { v: 1, type: "phrase", answerHash };
+      } catch {
+        return void (setupError.textContent = "No se pudo guardar la recuperación en este navegador.");
+      }
+    }
     try {
       const hash = await sha256Hex(p1);
       setStoredPasswordHash(hash);
       localStorage.removeItem(LS_PASSWORD); // por si existía algo viejo
+      if (recoveryCfg) setRecoveryConfig(recoveryCfg);
     } catch {
       setupError.textContent = "No se pudo guardar la contraseña en este navegador.";
       return;
@@ -495,6 +587,79 @@
     showApp();
   });
 
+  function showRecoveryReset() {
+    loginError.textContent = "";
+    recoveryError.textContent = "";
+    const cfg = getRecoveryConfig();
+    if (!cfg) {
+      return void alert(
+        "No hay recuperación configurada en este navegador.\n\nSi usted ya está dentro de la app, vaya a Ajustes y restablezca la contraseña desde allí."
+      );
+    }
+
+    nameForm.classList.add("hidden");
+    setupForm.classList.add("hidden");
+    loginForm.classList.add("hidden");
+    recoveryForm.classList.remove("hidden");
+
+    recoveryPromptQuestion.classList.toggle("hidden", cfg.type !== "question");
+    recoveryPromptPhrase.classList.toggle("hidden", cfg.type !== "phrase");
+
+    recoveryAnswerCheck.value = "";
+    recoveryPhraseCheck.value = "";
+    resetPass.value = "";
+    resetPass2.value = "";
+
+    if (cfg.type === "question") {
+      recoveryQuestionLabel.textContent = cfg.question || "Pregunta de seguridad";
+      recoveryAnswerCheck.focus();
+    } else {
+      recoveryPhraseCheck.focus();
+    }
+  }
+
+  btnForgotPass.addEventListener("click", showRecoveryReset);
+  btnRecoveryCancel.addEventListener("click", () => {
+    recoveryForm.classList.add("hidden");
+    showAuthForms();
+  });
+
+  recoveryForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    recoveryError.textContent = "";
+    await migratePlainPasswordIfNeeded();
+
+    const cfg = getRecoveryConfig();
+    if (!cfg) return void (recoveryError.textContent = "No hay recuperación configurada en este navegador.");
+
+    const p1 = resetPass.value;
+    const p2 = resetPass2.value;
+    if (p1.length < 4) return void (recoveryError.textContent = "La contraseña debe tener al menos 4 caracteres.");
+    if (p1 !== p2) return void (recoveryError.textContent = "Las contraseñas no coinciden.");
+
+    const provided =
+      cfg.type === "question" ? normalizeRecoverySecret(recoveryAnswerCheck.value) : normalizeRecoverySecret(recoveryPhraseCheck.value);
+    if (!provided) return void (recoveryError.textContent = "Ingrese el dato de recuperación.");
+
+    try {
+      const providedHash = await sha256Hex(provided.toLowerCase());
+      if (providedHash !== cfg.answerHash) return void (recoveryError.textContent = "Recuperación incorrecta.");
+    } catch {
+      return void (recoveryError.textContent = "No se pudo verificar la recuperación en este navegador.");
+    }
+
+    try {
+      const newHash = await sha256Hex(p1);
+      setStoredPasswordHash(newHash);
+      localStorage.removeItem(LS_PASSWORD);
+    } catch {
+      return void (recoveryError.textContent = "No se pudo guardar la nueva contraseña en este navegador.");
+    }
+
+    setSessionAuthenticated();
+    showApp();
+  });
+
   btnLogout.addEventListener("click", () => {
     clearSession();
     showAuthForms();
@@ -506,6 +671,7 @@
   function openSettings() {
     settingsError.textContent = "";
     settingsChurchName.value = getChurchName() || "";
+    ensureResetPasswordButton();
     openOverlay(settingsOverlay, settingsChurchName);
   }
 
@@ -520,6 +686,39 @@
     if (!ok) return void (settingsError.textContent = "Escriba un nombre válido.");
     closeOverlay(settingsOverlay);
   });
+
+  function ensureResetPasswordButton() {
+    if (btnResetPassword) return;
+    const footer = settingsForm.querySelector(".modal-footer");
+    if (!footer) return;
+    const wrap = document.createElement("div");
+    wrap.style.marginTop = "12px";
+    wrap.style.width = "100%";
+
+    const hint = document.createElement("div");
+    hint.className = "hint-inline";
+    hint.innerHTML =
+      '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Esto borra solo la contraseña guardada en este navegador (no elimina eventos ni otros datos).';
+
+    btnResetPassword = document.createElement("button");
+    btnResetPassword.type = "button";
+    btnResetPassword.className = "btn btn-danger";
+    btnResetPassword.innerHTML = '<i class="fa-solid fa-rotate" aria-hidden="true"></i> Restablecer contraseña';
+    btnResetPassword.addEventListener("click", () => {
+      const ok = window.confirm(
+        "Esto borrará la contraseña guardada en este navegador.\n\nSus eventos y demás datos NO se borrarán.\n\n¿Continuar?"
+      );
+      if (!ok) return;
+      clearStoredPasswordOnly();
+      closeOverlay(settingsOverlay);
+      showAuthForms();
+      alert("Contraseña borrada. Configure una nueva para volver a entrar.");
+    });
+
+    wrap.appendChild(hint);
+    wrap.appendChild(btnResetPassword);
+    footer.parentNode.insertBefore(wrap, footer);
+  }
 
   // ---------------------------------------------------------------------------
   // Navegación / sidebar
@@ -1583,3 +1782,4 @@
   void initAuth();
   startBackupReminder();
 })();
+

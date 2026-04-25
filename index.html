@@ -42,6 +42,43 @@
         <input type="password" id="setup-pass" name="setup-pass" autocomplete="new-password" required minlength="4" />
         <label for="setup-pass2">Repita la contraseña</label>
         <input type="password" id="setup-pass2" name="setup-pass2" autocomplete="new-password" required minlength="4" />
+        <div class="divider"></div>
+        <p class="auth-hint">
+          Para poder restablecer la contraseña sin perder datos, configure una opción de recuperación.
+        </p>
+        <label for="recovery-type">Recuperación</label>
+        <select id="recovery-type" name="recovery-type" required>
+          <option value="">Seleccione…</option>
+          <option value="question">Pregunta de seguridad</option>
+          <option value="phrase">Frase de recuperación</option>
+        </select>
+
+        <div id="recovery-question-fields" class="hidden">
+          <label for="recovery-question">Pregunta</label>
+          <input
+            type="text"
+            id="recovery-question"
+            name="recovery-question"
+            maxlength="120"
+            placeholder="Ej.: ¿Cómo se llama mi primera mascota?"
+            autocomplete="off"
+          />
+          <label for="recovery-answer">Respuesta</label>
+          <input type="password" id="recovery-answer" name="recovery-answer" minlength="3" autocomplete="off" />
+        </div>
+
+        <div id="recovery-phrase-fields" class="hidden">
+          <label for="recovery-phrase">Frase</label>
+          <input
+            type="password"
+            id="recovery-phrase"
+            name="recovery-phrase"
+            minlength="6"
+            maxlength="200"
+            placeholder="Guárdela en un lugar seguro"
+            autocomplete="off"
+          />
+        </div>
         <p id="setup-error" class="form-error" role="alert" aria-live="polite"></p>
         <button type="submit" class="btn btn-primary btn-block">
           <i class="fa-solid fa-lock" aria-hidden="true"></i> Guardar y entrar
@@ -56,6 +93,33 @@
         <button type="submit" class="btn btn-primary btn-block">
           <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Entrar
         </button>
+        <button type="button" id="btn-forgot-pass" class="btn btn-ghost btn-block">
+          <i class="fa-solid fa-key" aria-hidden="true"></i> ¿Olvidó su contraseña?
+        </button>
+      </form>
+
+      <!-- Recuperación: restablecer contraseña sin perder datos -->
+      <form id="recovery-form" class="auth-form hidden" novalidate>
+        <p class="auth-hint">Verifique la recuperación y defina una nueva contraseña.</p>
+        <div id="recovery-prompt-question" class="hidden">
+          <p class="auth-hint"><strong id="recovery-question-label"></strong></p>
+          <label for="recovery-answer-check">Respuesta</label>
+          <input type="password" id="recovery-answer-check" autocomplete="off" required />
+        </div>
+        <div id="recovery-prompt-phrase" class="hidden">
+          <label for="recovery-phrase-check">Frase de recuperación</label>
+          <input type="password" id="recovery-phrase-check" autocomplete="off" required />
+        </div>
+        <div class="divider"></div>
+        <label for="reset-pass">Nueva contraseña</label>
+        <input type="password" id="reset-pass" autocomplete="new-password" required minlength="4" />
+        <label for="reset-pass2">Repita la nueva contraseña</label>
+        <input type="password" id="reset-pass2" autocomplete="new-password" required minlength="4" />
+        <p id="recovery-error" class="form-error" role="alert" aria-live="polite"></p>
+        <button type="submit" class="btn btn-primary btn-block">
+          <i class="fa-solid fa-rotate" aria-hidden="true"></i> Restablecer contraseña
+        </button>
+        <button type="button" id="btn-recovery-cancel" class="btn btn-ghost btn-block">Volver</button>
       </form>
     </div>
   </div>
